@@ -61,7 +61,9 @@ def main():
             if visited[i][j]:
                 expanded += 1
 
+    # total number of existing nodes
     print(row * col, "nodes generated")
+    # total number of nodes visited
     print(expanded, "nodes expanded")
 
 def ucs(coord, visited, row, col, layout, goal_blocks):
@@ -89,6 +91,7 @@ def ucs(coord, visited, row, col, layout, goal_blocks):
                 new = list(path)
                 new.append([i, j, direction])
                 if layout[i][j] == "*":
+                    heapq.heappush(queue, (cost + 1, new))
                     if [i, j] in goal_blocks:
                         goal_paths.append(new)
                         goal_blocks.remove([i, j])
