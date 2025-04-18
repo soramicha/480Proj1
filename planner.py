@@ -1,5 +1,6 @@
 import sys
 import heapq
+import itertools
 
 def main():
     # make sure we have the right number of arguments
@@ -8,7 +9,7 @@ def main():
         return 0
     
     # get coordinate of starting point
-    expanded, col, row, layout, coord, goal_blocks = 0, 0, 0, [], [0, 0], []
+    nodes_generated, expanded, col, row, layout, coord, goal_blocks = [1], 0, 0, 0, [], [0, 0], []
 
     # read through the text file
     with open(sys.argv[2], 'r') as file:
@@ -35,41 +36,126 @@ def main():
                 break
             i += 1
         
-    # created a visited arr
-    visited = [[False for _ in range(col)] for _ in range(row)] 
-
     print(goal_blocks, "dirty blocks to clean total")
     
     # dfs
     if sys.argv[1] == "depth-first":
+        # inform user what algorithm we're running
         print("Running depth first search...")
-        dfs(coord[0], coord[1], visited, row, col, layout)
 
+        # create a visited 2D array
+        visited = [[False for _ in range(col)] for _ in range(row)]
+
+        # run dfs
+        path = dfs(coord[0], coord[1], visited, row, col, layout, [])
+
+        # keep track of which goals we visited
+        visited_goals = []
+        
+        # calculate the number of nodes generated while traveling in this path        
+        for p in path:
+            # if it's a dirty tile and the goal isn't included in visited_goals
+            if layout[p[0]][p[1]] == "*" and [p[0], p[1]] not in visited_goals:
+                # add to visited goals
+                visited_goals.append([p[0], p[1]])
+
+            # assign x and y
+            x, y = p[0], p[1]
+            pattern = [x + 1 < row, x - 1 >= 0, y + 1 < col, y - 1 >= 0]
+
+            # go through the pattern
+            nodes_generated[0] += sum(1 if expression else 0 for expression in pattern)
+
+        # get the number of visited nodes using visited
+        for i in range(row):
+            for j in range(col):
+                if visited[i][j]:
+                    expanded += 1
     else:
+        # inform user what algorithm we're running
         print("Running uniform cost search...")
-        path = ucs(coord, visited, row, col, layout, goal_blocks)
-        """for index, p in enumerate(path):
-            print("Path", index + 1)
-            for i, j, d in p:
-                print(d)
-            print("V")"""
-        for i in path:
-            print(i)
+        
+        # get all different ways robot can move to approach which goal in order
+        permutations = itertools.permutations(goal_blocks)
 
-    for i in range(row):
-        for j in range(col):
-            if visited[i][j]:
-                expanded += 1
+        # get best result
+        best_res = []
 
-    # total number of existing nodes
-    print(row * col, "nodes generated")
+        for permutation in permutations:
+            # set the starting coordinate for every permutation
+            start = coord
+
+            # keep track of the overall path per permutation
+            path = []
+
+            # assign permutation into an ordered list
+            order_of_goals = list(permutation)
+
+            # begin following the permutation order
+            for index, goal in enumerate(permutation):
+                # if the current goal isn't in the order_of_goals,
+                if goal not in order_of_goals:
+                    # then simply skip it
+                    continue
+
+                # uniform-cost search
+                new_path = ucs(start, row, col, layout, order_of_goals, goal)
+
+                if index == 0:
+                    # get the path that will reach that specific goal from start
+                    path += new_path
+                else:
+                    path += new_path[1:]
+
+                # new start at goal and we will keep looping until the last goal
+                start = goal
+
+            # if best_res is empty, assign to current path
+            if best_res == []:
+                best_res.append(path)
+            # otherwise, compare the lengths and reassign best_res if needed
+            elif len(best_res[0]) > len(path):
+                best_res[0] = path
+
+        # keep track of number of visited nodes
+        expanded = 0
+
+        # keep track of which goals we visited
+        visited_goals = []
+        
+        # print out final path for a permutation order
+        # ALSO calculate the number of nodes generated while traveling in this path        
+        for p in best_res[0]:
+            # increment visited nodes by 1
+            expanded += 1
+
+            # print out the direction
+            print(p[2])
+
+            # if it's a dirty cell, print V
+            if len(p) == 4 and [p[0], p[1]] not in visited_goals:
+                print("V")
+
+                # add to visited goals
+                visited_goals.append([p[0], p[1]])
+
+            # assign x and y
+            x, y = p[0], p[1]
+            pattern = [x + 1 < row, x - 1 >= 0, y + 1 < col, y - 1 >= 0]
+
+            # go through the pattern
+            nodes_generated[0] += sum(1 if expression else 0 for expression in pattern)
+        
+    # total number of nodes in the queue
+    print(nodes_generated[0], "nodes generated")
     # total number of nodes visited
     print(expanded, "nodes expanded")
 
-def ucs(coord, visited, row, col, layout, goal_blocks):
-    # assign cost and path
+def ucs(coord, row, col, layout, order_of_goals, goal):
+    # start off the queue and assign the current cost and path
     queue = [(0, [[coord[0], coord[1], "Start"]])]
-    goal_paths = []
+    
+    # loop until queue is empty
     while queue:
         # first pop minimum cost and path from queue
         cost, path = heapq.heappop(queue)
@@ -77,47 +163,64 @@ def ucs(coord, visited, row, col, layout, goal_blocks):
         # get the last node from path
         x, y = path[-1][0], path[-1][1]
 
-        # mark as visited
-        visited[x][y] = True
-
-        # if we cleaned up all blocks, return the cost and path
-        if len(goal_blocks) == 0:
-            return goal_paths
-        
-        # add to queue
+        # generate a pattern array for all directions
         pattern = [(x + 1, y, x + 1 < row, "S"), (x - 1, y, x - 1 >= 0, "N"), (x, y + 1, y + 1 < col, "E"), (x, y - 1, y - 1 >= 0, "W")]
+
+        # add to queue
         for i, j, expression, direction in pattern:
-            if expression and not visited[i][j] and layout[i][j] != "#":
+            # if it's not a blocked tile and there exists a path in this direction
+            if expression and layout[i][j] != "#":
+                # create a new array with the current path
                 new = list(path)
-                new.append([i, j, direction])
-                if layout[i][j] == "*":
+                
+                # if we find the goal
+                if layout[i][j] == "*" and [i, j] == goal:
+                    # add to the new path
+                    new.append([i, j, direction, 'V'])
+
+                    # remove all goals we've come across during our optimal path
+                    for node in new:
+                        if [node[0], node[1]] in order_of_goals:
+                            order_of_goals.remove([node[0], node[1]])
+
+                    # return the overall goal path
+                    return new
+                # if it's another goal, label the cost as 1
+                elif layout[i][j] == "*":
+                    new.append([i, j, direction, 'V'])
                     heapq.heappush(queue, (cost + 1, new))
-                    if [i, j] in goal_blocks:
-                        goal_paths.append(new)
-                        goal_blocks.remove([i, j])
+                # otherwise label the cost as 2
                 else:
+                    new.append([i, j, direction])
                     heapq.heappush(queue, (cost + 2, new))
 
-def dfs(x, y, visited, row, col, layout):
+def dfs(x, y, visited, row, col, layout, path):
     # mark as true
     visited[x][y] = True
 
+    # if we're on a dirty cell, mark it as vaccuumed
     if layout[x][y] == "*":
         print("V", x, y)
 
-    # visited unvisited neighbors
+    # visited all unvisited neighbors in all 4 directions
     if x + 1 < row and not visited[x + 1][y] and layout[x + 1][y] != "#":
         print("S")
-        dfs(x + 1, y, visited, row, col, layout)
+        path.append([x + 1, y])
+        dfs(x + 1, y, visited, row, col, layout, path)
     if x - 1 >= 0 and not visited[x - 1][y] and layout[x - 1][y] != "#":
         print("N")
-        dfs(x - 1, y, visited, row, col, layout)
+        path.append([x - 1, y])
+        dfs(x - 1, y, visited, row, col, layout, path)
     if y + 1 < col and not visited[x][y + 1] and layout[x][y + 1] != "#":
         print("E")
-        dfs(x, y + 1, visited, row, col, layout)
+        path.append([x, y + 1])
+        dfs(x, y + 1, visited, row, col, layout, path)
     if y - 1 >= 0 and not visited[x][y - 1] and layout[x][y - 1] != "#":
         print("W")
-        dfs(x, y - 1, visited, row, col, layout)
+        path.append([x, y - 1])
+        dfs(x, y - 1, visited, row, col, layout, path)
+
+    return path
 
 if __name__ == "__main__":
     main()
