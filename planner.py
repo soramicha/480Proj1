@@ -47,17 +47,24 @@ def main():
         visited = [[False for _ in range(col)] for _ in range(row)]
 
         # run dfs
-        path = dfs(coord[0], coord[1], visited, row, col, layout, [])
+        path = dfs(coord[0], coord[1], visited, row, col, layout, [[coord[0], coord[1], 'Start']])
+
+        n = len(path)
 
         # keep track of which goals we visited
         visited_goals = []
-        
+
         # calculate the number of nodes generated while traveling in this path        
-        for p in path:
+        for p in path[:n - 1]:
+            # print direction
+            print(p[2])
+
             # if it's a dirty tile and the goal isn't included in visited_goals
             if layout[p[0]][p[1]] == "*" and [p[0], p[1]] not in visited_goals:
                 # add to visited goals
                 visited_goals.append([p[0], p[1]])
+                # print V for vaccuum
+                print("V")
 
             # assign x and y
             x, y = p[0], p[1]
@@ -198,27 +205,41 @@ def dfs(x, y, visited, row, col, layout, path):
     # mark as true
     visited[x][y] = True
 
-    # if we're on a dirty cell, mark it as vaccuumed
-    if layout[x][y] == "*":
-        print("V", x, y)
+    # set backtrack to true
+    backtrack = True
 
     # visited all unvisited neighbors in all 4 directions
     if x + 1 < row and not visited[x + 1][y] and layout[x + 1][y] != "#":
-        print("S")
-        path.append([x + 1, y])
+        backtrack = False
+        path.append([x + 1, y, "S", [x, y]])
         dfs(x + 1, y, visited, row, col, layout, path)
     if x - 1 >= 0 and not visited[x - 1][y] and layout[x - 1][y] != "#":
-        print("N")
-        path.append([x - 1, y])
+        backtrack = False
+        path.append([x - 1, y, "N", [x, y]])
         dfs(x - 1, y, visited, row, col, layout, path)
     if y + 1 < col and not visited[x][y + 1] and layout[x][y + 1] != "#":
-        print("E")
-        path.append([x, y + 1])
+        backtrack = False
+        path.append([x, y + 1, "E", [x, y]])
         dfs(x, y + 1, visited, row, col, layout, path)
     if y - 1 >= 0 and not visited[x][y - 1] and layout[x][y - 1] != "#":
-        print("W")
-        path.append([x, y - 1])
+        backtrack = False
+        path.append([x, y - 1, "W", [x, y]])
         dfs(x, y - 1, visited, row, col, layout, path)
+
+    # if we must backtrack
+    if backtrack:
+        # go to the last visited node
+        new_node = [path[-2][0], path[-2][1], path[-2][2], path[-2][3]]
+        path.append(new_node)
+        d = path[-2][2]
+        if d == "S":
+            new_node[2] = "N"
+        elif d == "N":
+            new_node[2] = "S"
+        elif d == "E":
+            new_node[2] = "W"
+        else:
+            new_node[2] = "E"
 
     return path
 
