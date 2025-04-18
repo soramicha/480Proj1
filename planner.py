@@ -8,7 +8,7 @@ def main():
         print("Cannot Run Program")
         return 0
     
-    # get coordinate of starting point
+    # define variables
     nodes_generated, expanded, col, row, layout, coord, goal_blocks, blocks = [1], 0, 0, 0, [], [0, 0], [], 0
 
     # read through the text file
@@ -18,7 +18,7 @@ def main():
         row = int(file.readline())
 
         # read through the map layout line by line
-        i = 0
+        i = 0 # variable to keep track of the row
         while True:
             x = file.readline()
             if x:
@@ -37,7 +37,7 @@ def main():
                 layout.append(x[:len(x) - 1])
             else:
                 break
-            i += 1
+            i += 1 # increment row i by 1
         
     print(goal_blocks, "dirty blocks to clean total")
 
@@ -55,12 +55,24 @@ def main():
         # run dfs
         path = dfs(coord, visited, row, col, layout, [], good_tiles)
 
+
+        new_visit = [[False for _ in range(col)] for _ in range(row)]
+        c = 0
+        # extract the path we need (exclude the path where the robot goes back to where it started)
+        for index, p in enumerate(path):
+            if not new_visit[p[0]][p[1]]:
+                c += 1
+            if c == good_tiles:
+                c = index
+                break
+            new_visit[p[0]][p[1]] = True
+
         # keep track of which goals we visited
         visited_goals = []
 
         # calculate the number of nodes generated while traveling in this path
         prev = path[0]
-        for p in path[1:]:
+        for p in path[1:c + 1]:
             # calculate direction
             if prev[0] - p[0] == -1:
                 print("S")
