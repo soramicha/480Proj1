@@ -39,8 +39,6 @@ def main():
                 break
             i += 1 # increment row i by 1
         
-    print(goal_blocks, "dirty blocks to clean total")
-
     # get the number of tiles we can actually travel and access
     good_tiles = row * col - blocks
     
@@ -159,7 +157,7 @@ def main():
         
         # print out final path for a permutation order
         # ALSO calculate the number of nodes generated while traveling in this path        
-        for p in best_res[0]:
+        for p in best_res[0][1:]:
             # increment visited nodes by 1
             expanded += 1
 
